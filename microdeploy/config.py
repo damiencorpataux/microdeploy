@@ -34,8 +34,6 @@ class Config(object):
                 'baudrate': config_yaml.get('default', {}).get('baudrate') or default_baudrate}}
 
         dict_update(self.config, override)
-        if not self.device()['port']:
-            raise ValueError(f"Please specify a device port: use --port {f'or config file: {config_filename}' if config_filename else ''}")
 
     def device(self) -> dict:
         """Return device configuration, applying `*overrides`."""

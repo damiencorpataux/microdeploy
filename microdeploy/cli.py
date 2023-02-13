@@ -70,18 +70,22 @@ class MicrodeployCLI(Microdeploy):
     def _setup(self):
         try:
             super()._setup()
+            if not self._config_object.device()['port']:
+                sys.stderr.write(f"Note: Device port not specified: use --port {f'or edit config file: {self._config_file}' if self._config_file else ''}\n")
+            if not self._device_object.hashcache._cachefile_is_readwrite():
+                sys.stderr.write(f'Note: Cache file is not read/write: {self._device_object.hashcache.cachefile}\n')
+
         except FileNotFoundError as e:
             if self._config_file != DEFAULT_CONFIG_FILE:
                 raise
-            elif self._config_override['device'].get('port'):
-                sys.stderr.write(
-                    f"Note: Default config file not found: '{self._config_file}'"
-                    f'  - you can create this file or specify with --config, or configure device with arguments --port and --baud\n')
-                self._config_file = None
-                self._setup()  # let the user continue without a default config file
+            if not self._config_override['device'].get('port'):
+                sys.stderr.write(f'Note: Default config file not found: {self._config_file} (you can create this default file, or use --config another.yaml)\n')
+            self._config_file = None
+            self._setup()  # let the user continue without a default config file
+
         except (Exception, BaseException) as e:
             if self._debug:
                 raise
             else:
                 sys.stderr.write(f'\nERROR: {e}\n\n')
-                sys.exit(1)
+                sys.exit(1)  # prevent `fire` from showing help screen

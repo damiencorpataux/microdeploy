@@ -8,8 +8,8 @@ Microdeploy Device (mcu) manager.
 from .config import Configurable
 # import ampy.pyboard
 # import ampy.files
-from .ampy import pyboard as ampy_pyboard
-from .ampy import files as ampy_files
+from ampy import pyboard as ampy_pyboard
+from ampy import files as ampy_files
 import terminal_s.terminal
 import time
 import sys
@@ -21,15 +21,26 @@ import os
 
 class Device(Configurable):
 
-    # ampy = None
-    # pyboard = None
     __doc__ = __module__.__doc__
+
+    @property
+    def pyboard(self):
+        """Return singleton instance of `ampy.pyboard.Pyboard`."""
+        if not self._pyboard:
+            self._pyboard = ampy_pyboard.Pyboard(self.config.device()['port'], baudrate=self.config.device()['baudrate'], user='micro', password='python', wait=0, rawdelay=0)
+        return self._pyboard
+
+    @property
+    def ampy(self):
+        """Return singleton instance of `ampy.files.Files`."""
+        if not self._ampy:
+            self._ampy = ampy_files.Files(self.pyboard)
+        return self._ampy
 
     def __init__(self, config):
         super().__init__(config)
-        device_config = self.config.device()
-        self.pyboard = ampy_pyboard.Pyboard(device_config['port'], baudrate=device_config['baudrate'], user='micro', password='python', wait=0, rawdelay=0)
-        self.ampy = ampy_files.Files(self.pyboard)
+        self._pyboard = None
+        self._ampy = None
         self.hashcache = _HashCache(self)
 
     def console(self, **overrides):
@@ -119,7 +130,7 @@ class _HashCache(object):
     #   ie. one additional level in hashcash json structure;
     #   also, instanciable class could be nice.
 
-    def __init__(self, device:Device, cachefile='.deploy.hashcache'):
+    def __init__(self, device:Device, cachefile='.microdeploy.hashcache'):
         self.device = device
         self.cachefile = cachefile
 
@@ -149,58 +160,83 @@ class _HashCache(object):
 
     def clear(self):
         """Remove cache file."""
-        try:
-            os.unlink(self.cachefile)
-            sys.stderr.write(f'Hashcache file deleted: {self.cachefile}.\n')
-        except FileNotFoundError:
-            sys.stderr.write(f'Hashcache already clear: {self.cachefile}\n')
+        self._write({})
+        sys.stderr.write(f'Cache file cleared: {self.cachefile}.\n')
+        # try:
+        #     os.unlink(self.cachefile)
+        #     sys.stderr.write(f'Cache file deleted: {self.cachefile}.\n')
+        # except FileNotFoundError:
+        #     sys.stderr.write(f'Cache already clear: {self.cachefile}\n')
 
     def refresh(self):
         """Refresh cache from files contents on MCU."""
-        last_hashcache = self._read()
         hashcache = {}
         files_on_device = self.device.ls('/')
         for filename in files_on_device:
+            sys.stderr.write(f"{' '*50} (downloading) {filename}")
+            sys.stderr.flush()
+            last_hashcache = self._read()
             try:
                 file_content = self.device.get(filename)
                 hashcache[filename] = self._hash(file_content)
-                print(f"{hashcache[filename]} {filename} {'(unchanged)' if hashcache[filename] == last_hashcache.get(filename) else  '(changed)' if last_hashcache.get(filename) else '(new)'}")
+                sys.stderr.write(f"\r{hashcache[filename]} {filename}  ")
+                if hashcache[filename] == last_hashcache.get(filename):
+                    sys.stderr.write('(unchanged)')
+                else:
+                    sys.stderr.write('(changed)' if last_hashcache.get(filename) else '(new)')
+                    self._write(dict(last_hashcache, **hashcache))  # actual cache write
             except RuntimeError as e:
                 if 'No such file' not in str(e): raise   # pass when file is a directory
-                print(f"{' '*51}(not caching) {filename} (directory)")
-            except Exception as e:
-                sys.stderr.write(f'Error with file: {filename}: {e}\n')
-        self._write(hashcache)
+                sys.stderr.write(f"\r{' '*52} (directory) {filename}  (not caching)")
+            # except Exception as e:
+            #     sys.stderr.write(f'(error) {filename}: {e}')
+            sys.stderr.write(f"\n")
         for filename in set(last_hashcache) - set(files_on_device):
-            print(f'{last_hashcache[filename]} {filename} (removed)')  # for information
+            sys.stderr.write(f'{last_hashcache[filename]} {filename}  (removed)\n')  # for information
 
     def _write(self, hashcache):
         """Write `hashcache` to file `_HashCache.cachefile`, replacing existing content."""
-        with open(self.cachefile, 'w+') as f:
-            f.write(json.dumps(hashcache))
+        try:
+            with open(self.cachefile, 'w') as f:
+                f.write(json.dumps(hashcache))
+        except PermissionError as e:
+            sys.stderr.write(f'Bypassing cache write: file not writable: {self.cachefile}\n')
 
-    def _read(self):
+    def _read(self, failsafe=True):
         """Return hashcache content from file `_HashCache.cachefile`"""
         try:
-            if os.path.isfile(self.cachefile) and os.access(self.cachefile, os.W_OK):
+            try:
                 with open(self.cachefile) as f:
-                    return json.loads(f.read())  # actual loading of hashcache file
-            else:
-                sys.stderr.write(f'Bypassing cache: hashcache file not writable: {self.cachefile}\n')
+                    cache = json.loads(f.read())  # actual loading of file
+                    if type(cache) is dict:
+                        return cache
+                    else:
+                        raise ValueError(f'Bypassing cache: invlid cache structure in: {self.cachefile}')
+            except FileNotFoundError as e:
+                sys.stderr.write(f'Creating file: {self.cachefile}\n')
                 return {}
-
-        except FileNotFoundError as e:
-            sys.stderr.write(f'Creating hashcache file: {self.cachefile}\n')
-            return {}
-        except json.decoder.JSONDecodeError as e:
-            sys.stderr.write(f'Resetting hashcache file: invalid json content in: {self.cachefile})\n')
-            return {}
+            except json.decoder.JSONDecodeError as e:
+                sys.stderr.write(f'Clearing hashcache: invalid json in: {self.cachefile})\n')
+                return {}
+            except PermissionError as e:
+                raise PermissionError(f'Bypassing cache read: file not readable: {self.cachefile}')
+        except Exception as e:
+            if failsafe:
+                sys.stderr.write(f'{e}\n')
+                return {}
+            else:
+                raise e.__class__(f'Cache error: {e}')
 
     def _hash(self, bytes):
         return hashlib.sha256(bytes).hexdigest()
 
     def _mcu_filename(self, mcu_filename):
         return os.path.join('/', mcu_filename)  # file format like `ls()` always starting with /
+
+    def _cachefile_is_readwrite(self):
+            return (
+                (os.path.exists(self.cachefile) and os.path.isfile(self.cachefile) and os.access(self.cachefile, os.R_OK) and os.access(self.cachefile, os.W_OK))  # file exists and is read/writable
+                or (not os.path.exists(self.cachefile) and os.access('.', os.W_OK)))  # file not exists and containing directory is writable
 
 
 class _Progress(object):

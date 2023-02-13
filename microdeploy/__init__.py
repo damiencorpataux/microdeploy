@@ -17,8 +17,8 @@ This tool can be used as CLI or API.
   - API Usage: `help(Microdeploy)`
 
 TODO:
-  - Factorize callback format in device.put() and package.push(): calls to `_progress()` must return a `dict` and the string must be generated in class `Microdeploy`.
-  - Create a spin-off project `micropython-firedeploy` from this module:
+  - Progressbar in `device.put()`: Factorize callback format in device.put() and package.push(): calls to `_progress()` must return a `dict` and the string must be generated in class `Microdeploy`.
+  - Add feature: erase and flash firmware
 """
 
 from . import config as config_module
@@ -34,7 +34,7 @@ class Microdeploy(object):
     
     Also words as regular python package:
 
-        import firedeploy
+        import microdeploy
         deploy = Microdeploy()
         deploy.device.ls()
         deploy.package.put('tests')
@@ -60,7 +60,7 @@ class Microdeploy(object):
         self._device_object = device_module.Device(self._config_object)
         self._package_object = package_module.Package(self._config_object)
 
-        # Components definition # FIXME: Find better names for articulating: deploy device ls - could be: project mcu ls (uproject, u
+        # Components definition  # FIXME: Find better names for articulating: deploy device ls - could be: project mcu ls (uproject, u
 
         class config(object):
             """Config information."""
@@ -115,16 +115,21 @@ class Microdeploy(object):
         class cache(object):
             """Hashcache information."""
             def __init__(self_cache):
-                self_cache.hashcache = device_module._HashCache(self._device_object)
+                self_cache.hashcache = self._device_object.hashcache
+                # self_cache.hashcache = device_module._HashCache(self._device_object)
+            @self._to_fire(decorate_with=None)
             def show(self):
                 """Show contents of hashcache."""
-                return self.hashcache._read()
+                return self.hashcache._read(failsafe=False)
+            @self._to_fire(decorate_with=None)
             def refresh(self):
                 """Refresh hashcache from files contents on MCU."""
                 return self.hashcache.refresh()
+            @self._to_fire(decorate_with=None)
             def remove(self, filename):
                 """Remove file from cache."""
                 return self.hashcache.remove(filename)
+            @self._to_fire(decorate_with=None)
             def clear(self):
                 """Delete contents of hashcache."""
                 return self.hashcache.clear()
@@ -143,7 +148,7 @@ class Microdeploy(object):
 
     # Decorators
 
-    def _to_fire(self, doc_from=None):
+    def _to_fire(self, doc_from=None, decorate_with=staticmethod):
         """
         Decorator for a function to fire CLI using signature and docstring from another function specified by `doc_from`.
         """
@@ -157,7 +162,10 @@ class Microdeploy(object):
             wrapper.__doc__ = f_doc.__doc__
             wrapper.__annotations__ = f.__annotations__
             wrapper.__name__ = f.__name__
-            return staticmethod(wrapper)
+            if decorate_with is None:
+                return wrapper
+            else:
+                return decorate_with(wrapper)
         return inner
 
     def _handle_exception(self, f):
