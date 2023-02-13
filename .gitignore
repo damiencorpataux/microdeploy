@@ -1,0 +1,3 @@
+*.py[cod]
+.deploy.hashcache
+venv

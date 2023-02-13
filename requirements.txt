@@ -1,0 +1,4 @@
+# adafruit-ampy==1.1.0  # FIXME: ampy version from pip is too old to include feature progress, lib files are included in project for now
+terminal-s==0.2.0
+PyYAML==6.0
+fire==0.5.0
