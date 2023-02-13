@@ -34,6 +34,7 @@ class Config(object):
                 'baudrate': config_yaml.get('default', {}).get('baudrate') or default_baudrate}}
 
         dict_update(self.config, override)
+        self.config_filename = config_filename
 
     def device(self) -> dict:
         """Return device configuration, applying `*overrides`."""
@@ -54,13 +55,17 @@ class Config(object):
         for file_desc in package_config.get('files', []):
             if type(file_desc) is not str and not len(file_desc) == 2:
                 raise ValueError("File definition must be string or tuple, eg. 'main.py' or ('source.py', 'destination.py')")
-            # source, destination = [file_desc, file_desc] if type(file_desc) is str else file_desc
             source, destination = [file_desc, None] if type(file_desc) is str else file_desc
-            if '*' not in source:
-                package_files.append((source, destination or source))
+            source_relative = self.make_relative_to_configfile(source)
+            if '*' not in source_relative:
+                package_files.append((source_relative, destination or source))
             else:
-                for source_file in glob.iglob(source, recursive=True):  # Note: allow wildcards in source files, eg. 'tests/*.py' or 'tests/**/*.py``
-                    destination_file = os.path.join(destination or os.path.dirname(source_file), os.path.basename(source_file))
+                for source_file in glob.iglob(source_relative, recursive=True):  # Note: allow wildcards in source files, eg. 'tests/*.py' or 'tests/**/*.py``
+                    if destination is not None:
+                        destination_file = destination
+                    else:
+                        relative_path = os.path.relpath(os.path.dirname(self.config_filename))
+                        destination_file = source_file[1+len(relative_path):]
                     package_files.append((source_file, destination_file))
 
         for package_to_include in package_config.get('include', []):
@@ -70,6 +75,12 @@ class Config(object):
                 raise KeyError(f'{e} - while including in: {name}')
 
         return package_files
+
+    def make_relative_to_configfile(self, filename):
+        """Return `filename` made relative to config file path."""
+        return os.path.join(
+            os.path.relpath(os.path.dirname(self.config_filename)),
+            filename)
 
 
 class Configurable(object):

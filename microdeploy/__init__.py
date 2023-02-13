@@ -111,6 +111,10 @@ class Microdeploy(object):
                     sys.stderr.write(state)
                     sys.stderr.flush()
                 return self._package_object.push(*args, _progress=progress, **kwargs)
+            @self._to_fire()
+            def show(name):
+                """Show package definition (as of yaml config)."""
+                return self._config_object.config['packages'][name]
 
         class cache(object):
             """Hashcache information."""

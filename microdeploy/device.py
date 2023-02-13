@@ -6,8 +6,6 @@ Microdeploy Device (mcu) manager.
 #   https://github.com/scientifichackers/ampy/blob/master/ampy/files.py
 
 from .config import Configurable
-# import ampy.pyboard
-# import ampy.files
 from ampy import pyboard as ampy_pyboard
 from ampy import files as ampy_files
 import terminal_s.terminal
@@ -73,7 +71,7 @@ class Device(Configurable):
                 progress.start()
                 self.ampy.put(destination, data, progress_cb=progress.callback_for_ampy)  # FIXME: ampy version from pip is too old to include feature progress.
                 self.hashcache.add(destination, data)
-            except ampy.pyboard.PyboardError as e:
+            except ampy_pyboard.PyboardError as e:
                 if not parents_create:
                     raise RuntimeError(f'Directory does not exist for file: {destination}')
                 else:
@@ -89,7 +87,7 @@ class Device(Configurable):
         """Create directory on MCU filesystem (creating parents)."""
         try:
             return self.ampy.mkdir(directory)
-        except ampy.pyboard.PyboardError as e:
+        except ampy_pyboard.PyboardError as e:
             if 'OSError: [Errno 2] ENOENT' in str(e):
                 if not parents_create:
                     raise RuntimeError(f'Parent directory does not exist for: {directory}')
@@ -108,13 +106,22 @@ class Device(Configurable):
 
     def rmdir(self, filename):
         """Remove directory from MCU filesystem."""
-        self.ampy.rmdir(filename)
-        if filename in ['', '.']:
-            self.hashcache.delete()
+        try:
+            self.ampy.rmdir(filename)
+        except RuntimeError as e:
+            if filename in ['', '.'] and 'No such directory' in str(e):  # ampy rmdir . remove all files from filesystem and raise exception
+                sys.stderr.write('Deleting all files...')
+                self.hashcache.clear()
+            else:
+                raise
+
 
     def run(self, filename):
         """Run python script on MCU (without storing on filesystem)."""
-        return self.ampy.run(filename)
+        try:
+            return self.ampy.run(filename)
+        except ampy_pyboard.PyboardError as e:
+            raise ampy_pyboard.PyboardError(str(e.args[2].decode('utf-8')))
 
 
 # Helpers
