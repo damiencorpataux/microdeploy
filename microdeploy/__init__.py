@@ -80,6 +80,7 @@ class Microdeploy(object):
             rm = self._to_fire()(self._device_object.rm)
             rmdir = self._to_fire()(self._device_object.rmdir)
             run = self._to_fire()(self._device_object.run)
+            reset = self._to_fire()(self._device_object.reset)
             @self._to_fire(doc_from=self._device_object.put)
             def put(filename, *args, **kwargs):
                 def progress(state):
@@ -142,6 +143,14 @@ class Microdeploy(object):
         self.device = device
         self.package = package
         self.cache = cache
+
+    def ports(self):
+        """List available serial ports on this system."""
+        import serial.tools.list_ports
+        ports = {}
+        for port in serial.tools.list_ports.comports():
+            ports[port.device] = port.description
+        return ports
 
     # @property
     # def self(self):

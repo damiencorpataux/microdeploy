@@ -61,10 +61,12 @@ class Config(object):
                 package_files.append((source_relative, destination or source))
             else:
                 for source_file in glob.iglob(source_relative, recursive=True):  # Note: allow wildcards in source files, eg. 'tests/*.py' or 'tests/**/*.py``
+                    if os.path.isdir(source_file):
+                        continue
                     if destination is not None:
                         destination_file = destination
                     else:
-                        relative_path = os.path.relpath(os.path.dirname(self.config_filename))
+                        relative_path = os.path.relpath(os.path.dirname(self.config_filename) or '.')
                         destination_file = source_file[1+len(relative_path):]
                     package_files.append((source_file, destination_file))
 
@@ -78,10 +80,7 @@ class Config(object):
 
     def make_relative_to_configfile(self, filename):
         """Return `filename` made relative to config file path."""
-        return os.path.join(
-            os.path.relpath(os.path.dirname(self.config_filename)),
-            filename)
-
+        return os.path.join(os.path.relpath(os.path.dirname(self.config_filename) or '.'), filename)
 
 class Configurable(object):
     """

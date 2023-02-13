@@ -110,7 +110,7 @@ class Device(Configurable):
             self.ampy.rmdir(filename)
         except RuntimeError as e:
             if filename in ['', '.'] and 'No such directory' in str(e):  # ampy rmdir . remove all files from filesystem and raise exception
-                sys.stderr.write('Deleting all files...')
+                sys.stderr.write('Deleting all files...\n')
                 self.hashcache.clear()
             else:
                 raise
@@ -122,6 +122,18 @@ class Device(Configurable):
             return self.ampy.run(filename)
         except ampy_pyboard.PyboardError as e:
             raise ampy_pyboard.PyboardError(str(e.args[2].decode('utf-8')))
+
+    def reset(self):
+        """Reset MCU (hard reset)."""
+        self.pyboard.enter_raw_repl()
+        self.pyboard.exec_raw_no_follow("""if 1:  # hack indent error
+            try:
+                import microcontroller as m
+            except:
+                import machine as m
+            m.reset()
+        """)
+        self.pyboard.exit_raw_repl()
 
 
 # Helpers

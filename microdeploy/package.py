@@ -39,7 +39,8 @@ class Package(Configurable):
         else:
             _progress(f'Put: Skipping.\n\n')
 
-        if file_to_run := self.config.config['packages'][name].get('run'):
+        files_to_run = self.config.config['packages'][name].get('run', [])
+        for file_to_run in files_to_run:
             _progress(f'Run: {file_to_run}... ')
             if norun:
                 _progress('skipping.\n')
@@ -50,13 +51,18 @@ class Package(Configurable):
                 self.device.run(file_to_run)
                 _progress('--------->8---\n')
 
+        if self.config.config['packages'][name].get('reset', False):
+            _progress(f'Reset MCU... ')
+            self.device.reset()
+            _progress(f'done.\n')
+
         _progress('\n')
         if count == len(files) or noput:
             _progress(f"OK: Pushed to MCU {count}/{len(files)} files from package: {name}{' (skipped by --noput)' if noput else ''}.\n")
         if not noput and count != len(files):
             _progress(f'WARNING: Only {count}/{len(files)} files uploaded from package: {name} !\n')
-        if file_to_run:
-            _progress(f"Ran on MCU: {file_to_run}{ '(skipped by --norun)' if norun else ''}.\n")
+        if files_to_run:
+            _progress(f"Ran on MCU: {files_to_run}{ '(skipped by --norun)' if norun else ''}.\n")
 
     # def stats(self, name):
     #     # TODO: for file in package: display count lines/bytes/words/spaces/emptylines + total for package

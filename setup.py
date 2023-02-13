@@ -31,6 +31,7 @@ setup(
     install_requires=[
         'adafruit-ampy-master',
         'terminal-s',
+        'pyserial',
         'PyYAML',
         'fire'
     ],
