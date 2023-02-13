@@ -2,8 +2,8 @@
 Microdeploy Package manager.
 """
 
-import device
-from config import Configurable
+from . import device
+from .config import Configurable
 
 
 class Package(Configurable):

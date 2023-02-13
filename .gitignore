@@ -1,3 +1,7 @@
 *.py[cod]
 .deploy.hashcache
 venv
+
+build/
+dist/
+*.egg-info

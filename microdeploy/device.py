@@ -1,16 +1,15 @@
 """
 Microdeploy Device (mcu) manager.
 """
-
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))  # FIXME: ampy version from pip is too old to include feature progress.
 # Note: source files related to ampy:
 #   https://github.com/scientifichackers/ampy/blob/master/ampy/pyboard.py
 #   https://github.com/scientifichackers/ampy/blob/master/ampy/files.py
 
-from config import Configurable
-import ampy.pyboard
-import ampy.files
+from .config import Configurable
+# import ampy.pyboard
+# import ampy.files
+from .ampy import pyboard as ampy_pyboard
+from .ampy import files as ampy_files
 import terminal_s.terminal
 import time
 import sys
@@ -29,8 +28,8 @@ class Device(Configurable):
     def __init__(self, config):
         super().__init__(config)
         device_config = self.config.device()
-        self.pyboard = ampy.pyboard.Pyboard(device_config['port'], baudrate=device_config['baudrate'], user='micro', password='python', wait=0, rawdelay=0)
-        self.ampy = ampy.files.Files(self.pyboard)
+        self.pyboard = ampy_pyboard.Pyboard(device_config['port'], baudrate=device_config['baudrate'], user='micro', password='python', wait=0, rawdelay=0)
+        self.ampy = ampy_files.Files(self.pyboard)
         self.hashcache = _HashCache(self)
 
     def console(self, **overrides):
