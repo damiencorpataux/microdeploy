@@ -1,0 +1,20 @@
+packages:
+
+  tests:
+    files:
+      - [microdot/libs/common/**, libs/common']  # FIXME: is source has wildcard, then destination is a path, then add source filename to destination path (basedir()).
+      # - microdot/libs/micropython/unittest.py
+      # - microdot/src/**
+      # - microdot/tests/**
+      # - microdot/run_tests.py
+
+  tests-run:
+    include:
+      - tests
+    run:
+      - microdot/run_tests.py
+
+
+device:
+  port: /dev/ttyUSB0
+  # baudrate: 115200
