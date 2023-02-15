@@ -46,7 +46,7 @@ class Package(Configurable):
                 _progress('skipping.\n')
             else:
                 _progress('\n')
-                file_to_run = self.config.make_relative_to_configfile(file_to_run)
+                file_to_run = self.config.make_filename_relative(file_to_run)
                 _progress('---8<---------\n')
                 self.device.run(file_to_run)
                 _progress('--------->8---\n')

@@ -2,11 +2,16 @@ packages:
 
   tests:
     files:
-      - [microdot/libs/common/**, libs/common']  # FIXME: is source has wildcard, then destination is a path, then add source filename to destination path (basedir()).
+      # - [microdot/libs/common/**, libs/common']  # FIXME: is source has wildcard, then destination is a path, then add source filename to destination path (basedir()).
+
+      # - microdot/libs/common/**
       # - microdot/libs/micropython/unittest.py
       # - microdot/src/**
       # - microdot/tests/**
       # - microdot/run_tests.py
+
+      # - microdot/**/*.py
+      - microdot/run_tests.py
 
   tests-run:
     include:
