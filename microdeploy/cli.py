@@ -77,7 +77,7 @@ class MicrodeployCLI(Microdeploy):
 
         except FileNotFoundError as e:
             if self._config_file != DEFAULT_CONFIG_FILE:
-                raise
+                raise  # FIXME: why this raise is not caught by self._handle_exception() ?
             if not self._config_override['device'].get('port'):
                 sys.stderr.write(f'Note: Default config file not found: {self._config_file} (you can create this default file, or use --config another.yaml)\n')
             self._config_file = None

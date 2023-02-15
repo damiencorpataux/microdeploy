@@ -121,7 +121,18 @@ class Device(Configurable):
         try:
             return self.ampy.run(filename)
         except ampy_pyboard.PyboardError as e:
-            raise ampy_pyboard.PyboardError(str(e.args[2].decode('utf-8')))
+            raise ampy_pyboard.PyboardError(pyboard_error_message(e))
+
+    def exec(self, code):
+        """Execute code on MCU REPL."""
+        self.pyboard.enter_raw_repl()
+        try:
+            output = self.pyboard.exec_(code)
+        except ampy_pyboard.PyboardError as e:
+            raise ampy_pyboard.PyboardError(pyboard_error_message(e))
+        finally:
+            self.pyboard.exit_raw_repl()
+        return output.decode('utf-8')
 
     def reset(self):
         """Reset MCU (hard reset)."""
@@ -137,6 +148,9 @@ class Device(Configurable):
 
 
 # Helpers
+
+def pyboard_error_message(exc:ampy_pyboard.PyboardError):
+    return str(exc.args[2].decode('utf-8'))
 
 import hashlib
 import json
