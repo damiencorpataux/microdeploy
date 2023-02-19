@@ -79,14 +79,18 @@ class Config(object):
         source, destination = [file_description, None] if type(file_description) is str else file_description
         source_relative = self.make_filename_relative(source)
         if '*' not in source_relative:
-            filenames.append((source_relative, destination or source))
+            # FIXME: if destination is a directory (ends with /), join destination directory and source filename
+            # filenames.append((source_relative, destination or source))
+            filenames.append((source_relative, self.make_filename_destination(source, destination)))
         else:
             for source_file in glob.iglob(source_relative, recursive=True):  # Note: allow wildcards in source files, eg. 'tests/*.py' or 'tests/**/*.py``
                 if os.path.isdir(source_file):
-                    continue
+                    continue  # Note: ignore directories: they are created by `device.put()`.
                 if destination is not None:
-                    destination_file = destination
+                    # destination_file = destination
+                    destination_file = self.make_filename_destination(source_file, destination)
                 else:
+                    # Note: make destination_file = source_file without relative path prefix
                     relative_path = os.path.dirname(self.config_filename)
                     destination_file = source_file[1+len(relative_path):]
                 filenames.append((source_file, destination_file))
@@ -97,6 +101,16 @@ class Config(object):
         return os.path.relpath(os.path.join(
                 os.path.relpath(os.path.dirname(self.config_filename or './')),
                 filename))
+
+    def make_filename_destination(self, source_description, destination_description):
+        """Return the destination path and filename, according the rules."""
+        if destination_description is None:
+            return source_description
+        elif destination_description.endswith('/'):
+            return os.path.join(os.path.dirname(destination_description), os.path.basename(source_description))
+        else:
+            return destination_description
+
 
 class Configurable(object):
     """

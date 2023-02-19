@@ -84,17 +84,34 @@ class Test(unittest.TestCase):
             ('tests/samples/files/lib/module.py', 'files/lib/module.py'),
             ('tests/samples/files/lib/sublib/submodule.py', 'files/lib/sublib/submodule.py')])
 
-        # print(config.make_filenames('files/*'))  # TODO: destination directory specification
-        # print(config.make_filenames(['files/*', '.']))  # TODO
-        # print(config.make_filenames(['files/*', 'another_dir']))  # TODO
-        # print(config.make_filenames(['files/*', 'another_dir/']))  # TODO
-        # print(config.make_filenames(['files/*', 'another_dir/subdir']))  # TODO
+        print(config.make_filenames(['files/*', './']))  # TODO
+        # print(config.make_filenames(['files/*', 'another_file']))  # TODO: should upload TO FILE: another_file
+        # print(config.make_filenames(['files/*', 'another_dir/']))  # TODO: should upload TO DIR: another_dir
+        # print(config.make_filenames(['files/*', 'another_dir/subfile']))  # TODO
         # print(config.make_filenames(['files/*', 'another_dir/subdir/']))  # TODO
 
         # print(config.make_filenames('files/')  # FIXME?
+
+    def test_microdeploy_config_make_filename_destination(self):
+        # TODO: implement (simple) and move below `self.test_microdeploy_config_make_filename_relative()`.
+        pass
+
+    def test_microdeploy_config_package(self):
+        # TODO
+        pass
 
     def test_example_project_microdot(self):
         # # TODO?
         # mdeploy = microdeploy.Microdeploy(config='..example/project-microdot/microdeploy.yaml')
         # mdeploy.package.push('tests')
+        pass
+
+    def test_microdeploy_device_put(self):
+        # # TODO: can only be testes with a MCU connected.
+        # device.put('file.ext')
+        # device.put('file.ext', 'another.ext')
+        # device.put('file.ext', 'subdir/another.ext')
+        # device.put('file.ext', '/subdir/another.ext')
+        # device.put('file.ext', './subdir/another.ext')
+        # device.put('file.ext', '/dir/subdir/')  # FIXME: what shall it do here (current implementation: creates directory but no file)
         pass

@@ -54,7 +54,7 @@ class Device(Configurable):
 
     def get(self, filename):
         """Return file content from MCU filesystem."""
-        return self.ampy.get(filename)
+        return self.ampy.get(filename).decode('utf-8')
 
     def put(self, source, destination=None, force=False, parents_create=True, _progress=None):
         """Upload file to MCU filesystem."""
@@ -64,9 +64,12 @@ class Device(Configurable):
             data = f.read()
         progress = _Progress(source, callback_for_user=_progress)
         if not force and self.hashcache.same(destination, data):
-            _progress(f'Ign: {source}\n  -> {destination}... up-to-date in cache, --force to override.\n')
+            _progress(f'Ign: {source}\n  -> {destination} ... {progress.bytes} bytes, up-to-date in cache, --force to ignore cache.\n')
+        # TODO: more precise message
+        # elif force:
+        #     _progress(f'Put: {source}\n  -> {destination} ... {progress.bytes} bytes, forced with --force (\n')
         else:
-            _progress(f'Put: {source}\n  -> {destination}... {progress.bytes} bytes\n')
+            _progress(f'Put: {source}\n  -> {destination} ... {progress.bytes} bytes\n')
             try:
                 progress.start()
                 self.ampy.put(destination, data, progress_cb=progress.callback_for_ampy)  # FIXME: ampy version from pip is too old to include feature progress.
@@ -75,6 +78,10 @@ class Device(Configurable):
                 if not parents_create:
                     raise RuntimeError(f'Directory does not exist for file: {destination}')
                 else:
+                    # FIXME: when destination = /some/directory/ (ends with /), the directory is created, but no file,
+                    #   as the same exception PyboardError with message "NOENT" is raised...
+                    # TODO: if destination.endwith('/'): join basename(source) to destination ?
+                    print(f'Creating directory: {os.path.dirname(destination)} (PyboardError: {e} (FIXME))')
                     self.mkdir(os.path.dirname(destination), parents_create=True)
                     return self.ampy.put(source, destination)
 
@@ -264,6 +271,21 @@ class _HashCache(object):
         return hashlib.sha256(bytes).hexdigest()
 
     def _mcu_filename(self, mcu_filename):
+        # TODO: `ampy.put source_file ../destination_file` uploads to /destination_file, therefore:
+        # if mcu_filename == file -> /file
+        # if mcu_filename == /file -> /file
+        # if mcu_filename == ./file -> /file
+        # if mcu_filename == ../file -> /file
+        # if mcu_filename == ../../file -> /file
+        # if mcu_filename == ///file -> /file
+        # if mcu_filename == .///file -> /file
+        # if mcu_filename == ..///file -> /file
+        # if mcu_filename == ..///file -> /file
+        # if mcu_filename == ..///..///file -> raise Exception
+
+        # if mcu_filename == a/b/c/file -> /a/b/c/file
+        # if mcu_filename == ../a//./b//c//file -> /a/b/c/file -> raise Exception  # FIXME: should `device.put()` not allow this kind of destinations ?
+
         return os.path.join('/', mcu_filename)  # file format like `ls()` always starting with /
 
     def _cachefile_is_readwrite(self):
