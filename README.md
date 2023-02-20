@@ -1,23 +1,42 @@
 microdeploy
 ===========
 
-**Deploy projects on MCU with a toolkit that is simple, fluid, and configurable.**
+**Deploy project files on MCU as simple, fluid, and configurable.**
+
+This tool gives a per-project approach for uploading files to MCU.
+Per-environment support is intended - todo.
 
 
 Features
 --------
 
-- Configurable per-project environments and files - see example config: [`microdeploy.yaml`](microdeploy.yaml)
-- Workflow support with a consistent CLI and API - see [CLI Usage](#cli-usage) and [API Usage](#api-usage)
-- Caching of MCU filesystem (hash cache)
+- Configurable project files and environment - see example config: [`microdeploy.yaml`](example/project/microdeploy.yaml)
+- Workflow support with a consistent CLI and API - see [CLI Usage](#cli-usage) and [Python Usage](#python-usage)
+- Pseudo-caching of MCU filesystem (hash cache)
+
+
+Purpose
+-------
+
+A KISS approach to wrap up existing CLI tools:
+[ampy](https://pypi.org/project/adafruit-ampy-master/),
+[terminal-s](https://pypi.org/project/terminal-s/),
+(esptool, rshell),
+and [fire](https://pypi.org/project/fire/).
+
+&mdash; *Note: Package [`adafruit-ampy-master`](https://pypi.org/project/adafruit-ampy-master/) is used
+instead of [adafruit-ampy](https://pypi.org/project/adafruit-ampy/)
+in order to allow upload progress display, because the official package is not up-to-date with [master](https://github.com/damiencorpataux/ampy).*
 
 
 Installation
 ------------
 
-```sh
-pip install microdeploy
-
+```s
+pip uninstall adafruit-ampy  # see requirements.txt (this is 0.0.1)
+pip install --user microdeploy
+```
+```s
 microdeploy
 microdeploy --help
 ```
@@ -26,11 +45,11 @@ microdeploy --help
 CLI Usage
 ---------
 
-```sh
-microdeploy
-microdeploy --help
-microdeploy --config config-custom.yaml
-microdeploy --port /dev/ttyUSB0 --baud 115200
+```s
+microdeploy                          # With default config file: microdeploy.yaml
+microdeploy --port /dev/ttyUSB0      # Without config file
+microdeploy --config other.yaml      # Use alternate config file
+microdeploy --baud 115200 --port XYZ  # Override config
 
 microdeploy config
 microdeploy config show
@@ -38,21 +57,20 @@ microdeploy config show
 microdeploy device
 microdeploy device show
 microdeploy device ls
-microdeploy device mkdir testdir
-microdeploy device rmdir testdir
 microdeploy device put main.py
 microdeploy device put test.py main.py
 microdeploy device rm main.py
+microdeploy device mkdir testdir
+microdeploy device rmdir testdir
 microdeploy device rmdir .  # Note: Remove all files on MCU filesystem.
 
 microdeploy device console
 
 microdeploy package
-microdeploy package show
-microdeploy package show tests
+microdeploy package names
 microdeploy package files tests
-microdeploy package put tests
-microdeploy package put tests --debug --nofail --noput --norun --force
+microdeploy package push tests
+microdeploy package push tests --debug --nofail --noput --norun --force
 microdeploy package run tests-run.py
 
 microdeploy package cache
@@ -67,72 +85,87 @@ Python Usage
 
 ```py
 from microdeploy import Microdeploy
+
 help(Microdeploy)
-
-deploy = Microdeploy()
-deploy.device.ls()
-deploy.package.put('tests')
-
-Microdeploy(config='deploy.yaml')
-Microdeploy(config='deploy.yaml').device
-Microdeploy(config='deploy.yaml').device.ls()
-Microdeploy(debug=True, port='COM4', baud=115200)
-
 ```
-See Python API in class [`Microdeploy`](pinout_deploy/__init__.py) in source code.
+
+Without config file:
+```py
+deploy = Microdeploy(port='/dev/ttyUSB0')
+
+deploy.config.show()
+deploy.device.ls()
+deploy.device.put('main.py')
+deploy.device.put('lib.py', '/lib/lib.py')
+
+deploy.device.run('sandbox/test-something.py')
+deploy.device.reset()
+```
+
+With config file (relative to cwd):
+```py
+deploy = Microdeploy(config='microdeploy.yaml')
+
+deploy.package.show('tests')
+deploy.package.files('tests')
+deploy.package.push('tests')
+```
 
 
 Example
 -------
+Automation of deploy and run tests on MCU - see code in [`example/project`](example/project).
 
-Automation of deploy and run tests:
+Push the package (2 times to see the cache working):
+```s
+python3 -m microdeploy -c example/project/microdeploy.yaml package push tests-run
+```
+```s
+Deploying package: tests-run: 4 files -> MCU...
 
-```sh
-microdeploy package push tests
-```
-```
-Uploading to MCU: 8 files from package: tests...
-Push: tests/test_pinout_pinwrap.py -> tests/test_pinout_pinwrap.py... 9747 bytes
-      100%, 7.1s, 10939 bits/s, 0 bytes left, 0.0s left.
-done.
-Push: tests/test_pinout_pinout.py -> tests/test_pinout_pinout.py... 4059 bytes
-      100%, 3.5s, 9361 bits/s, 0 bytes left, 0.0s left.
-done.
-Push: tests/__init__.py -> tests/__init__.py... 502 bytes
-      100%, 1.2s, 3216 bits/s, 0 bytes left, 0.0s left.
-done.
-Push: tests/lib-micropython/unittest.py -> tests/lib-micropython/unittest.py... 7193 bytes
-      100%, 5.5s, 10522 bits/s, 0 bytes left, 0.0s left.
-done.
-Push: tests-run.py -> main.py... 373 bytes
-      100%, 1.2s, 2576 bits/s, 0 bytes left, 0.0s left.
-done.
-Push: pinout/__init__.py -> pinout/__init__.py... 6468 bytes
-      100%, 5.0s, 10291 bits/s, 0 bytes left, 0.0s left.
-done.
-Push: pinout/watcher.py -> pinout/watcher.py... 2235 bytes
-      100%, 2.3s, 7680 bits/s, 0 bytes left, 0.0s left.
-done.
-Push: pinout/pinwrap.py -> pinout/pinwrap.py... 6147 bytes
-      100%, 4.8s, 10184 bits/s, 0 bytes left, 0.0s left.
-done.
+Put: example/project/tests/__init__.py
+  -> tests/__init__.py... 23 bytes
+       0%, 0.0s, 0 bits/s, 23 bytes left, 0.0s left.
+
+Creating directory: tests
+
+Put: example/project/tests/__init__.py
+  -> tests/__init__.py... 23 bytes
+     100%, 0.9s, 209 bits/s, 0 bytes left, 0.0s left.
+
+Put: example/project/tests/test_pin.py
+  -> tests/test_pin.py... 579 bytes
+     100%, 1.3s, 3596 bits/s, 0 bytes left, 0.0s left.
+
+Put: example/project/tests/lib/unittest.py
+  -> tests/lib/unittest.py... 7193 bytes
+       0%, 0.0s, 0 bits/s, 7193 bytes left, 0.0s left.
+
+Creating directory: tests/lib
+
+Put: example/project/tests/lib/unittest.py
+  -> tests/lib/unittest.py... 7193 bytes
+     100%, 5.4s, 10559 bits/s, 0 bytes left, 0.0s left.
+
+Put: example/project/tests-run.py
+  -> tests-run.py... 55 bytes
+     100%, 0.9s, 490 bits/s, 0 bytes left, 0.0s left.
 
 Run: tests-run.py...
-Running on micropython (name='micropython', version=(1, 19, 1), _machine='ESP32 module with ESP32', _mpy=10246)
-test_pinout_pinwrap_Pinwrap_value (TestPinoutPinwrap) ... ok
-test_pinout_pinwrap_Pinwrap_config_without (TestPinoutPinwrap) ... ok
-test_pinout_pinwrap_Pinwrap_config_with (TestPinoutPinwrap) ... ok
-test_pinout_pinwrap_Pinwrap_subclass (TestPinoutPinwrap) ... ok
-test_pinout_pinwrap_Pinwrap_subclasses (TestPinoutPinwrap) ... ok
-test_helper_test_pinout_pinwrap_Pinwrap_subclass (TestPinoutPinwrap) ... ok
-test_pinout_functions (TestPinoutPinout) ... ok
-test_pinout_Pinout (TestPinoutPinout) ... ok
-Ran 9 tests
+---8<---------
+test_pin_on (TestPin) ... ok
+test_pin_off (TestPin) ... ok
+test_pin_toggle (TestPin) ... ok
+Ran 3 tests
 
-OK.
+OK
+--------->8---
+
+OK: Pushed to MCU 4/4 files from package: tests-run.
+Ran on MCU: ['tests-run.py'].
 ```
 
-More examples on asciinema:
+More on asciinema:
 
 - [Device access](https://asciinema.org/a/v0fogxAifNFMB7WoQG7nCVc6Q)
 
@@ -146,13 +179,24 @@ More examples on asciinema:
 Development
 -----------
 
-Install and run from repository (without `setuptools`):
-```sh
-git clone ...
-pip install -r requirements.txt
+This prototype was written because I was tinkering with ESP in a project with multiple files.
+I was tired of forgetting to upload this or that file, and testing partly outdated code,
+<br>or needing to upload all files again every time. It became worse when I had to test my project on both ESP32 and 8266.
 
-python -m microdeploy  # display cli help
-python -m microdeploy --help
-```
+Project facts:
 
-We follow [Semantic Versioning](https://semver.org/).
+* [Semantic Versioning](https://semver.org/) is followed
+
+* Stage of development: [MVP](https://en.wikipedia.org/wiki/Minimum_viable_product)
+
+* The smaller the better:
+   ```wc -l microdeploy/*```
+   ```s
+    91 microdeploy/cli.py
+   103 microdeploy/config.py
+   293 microdeploy/device.py
+   197 microdeploy/__init__.py
+     6 microdeploy/__main__.py
+    77 microdeploy/package.py
+   767 total
+   ```
