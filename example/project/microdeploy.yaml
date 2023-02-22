@@ -1,0 +1,27 @@
+packages:
+  all:
+    files:
+      - '**'
+  
+  blink:
+    files:
+      - [blink-onboard.py, main.py]
+    reset:
+      true
+
+  tests:
+    files:
+      - tests/*.py
+      - tests/lib/*.py
+      - tests-run.py
+
+  tests-run:
+    include:
+      - tests
+    run:
+      - tests-run.py
+
+
+device:
+  port: /dev/ttyUSB0
+  # baudrate: 115200

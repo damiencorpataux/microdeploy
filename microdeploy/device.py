@@ -15,7 +15,7 @@ import os
 
 # FIXME:
 #   let handle wildcards (glob style) * for put(), rm(), rmdir()  - Note: rm seem to be able to delete directories too
-#   let handle --recursive for put()                           - Note: rm() and rmdir() seem to be recusrive only
+#   let handle --recursive for put()                              - Note: rm() and rmdir() seem to be recusrive only
 
 class Device(Configurable):
 
@@ -56,8 +56,8 @@ class Device(Configurable):
         """Return file content from MCU filesystem."""
         return self.ampy.get(filename).decode('utf-8')
 
-    def put(self, source, destination=None, force=False, parents_create=True, _progress=None):
-        """Upload file to MCU filesystem."""
+    def put(self, source, destination=None, force=False, parents_create=True, _progress=lambda state: None):
+        """Upload file to MCU filesystem, creating parent directories."""
         if destination is None:
             destination = source
         with open(source, 'rb') as f:
@@ -78,12 +78,9 @@ class Device(Configurable):
                 if not parents_create:
                     raise RuntimeError(f'Directory does not exist for file: {destination}')
                 else:
-                    # FIXME: when destination = /some/directory/ (ends with /), the directory is created, but no file,
-                    #   as the same exception PyboardError with message "NOENT" is raised...
-                    # TODO: if destination.endwith('/'): join basename(source) to destination ?
-                    print(f'Creating directory: {os.path.dirname(destination)} (PyboardError: {e} (FIXME))')
                     self.mkdir(os.path.dirname(destination), parents_create=True)
-                    return self.ampy.put(source, destination)
+                    _progress(f'\n\nCreating directory: {os.path.dirname(destination)}\n\n')
+                    return self.put(source, destination, _progress=_progress)
 
     def rm(self, filename):
         """Remove file from MCU filesystem."""
@@ -301,7 +298,7 @@ class _Progress(object):
     def __init__(self, filename, callback_for_user=None):
         self.bytes = os.stat(filename).st_size
         self.bytes_left = self.bytes
-        self.callback = callback_for_user
+        self.callback = callback_for_user or (lambda state: None)
 
     def start(self):
         self.time_start = time.time_ns()

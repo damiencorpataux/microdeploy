@@ -4,7 +4,7 @@ Microdeploy Configuration manager.
 
 import yaml
 import glob
-import re
+# import re
 import os
 
 
