@@ -52,7 +52,6 @@ class Config(object):
         # files = package_config.get('files', [])  # make_filenames
         # files_to_run = package_config.get('run', [])  # make_filename_relative
         # reset = package_config.get('reset', False)
-        package_files = []
         if self.config_filename == None:
             raise AssertionError('Packages not available when no config file')
         try:
@@ -61,35 +60,58 @@ class Config(object):
             raise ValueError(f"Package not found: {name}  - packages available: {', '.join(self.config.get('packages', {}).keys())}")
 
         package_files = []
-        for file_desc in package_config.get('files', []):
-            if type(file_desc) is not str and not len(file_desc) == 2:
-                raise ValueError("File definition must be string or tuple, eg. 'main.py' or ('source.py', 'destination.py')")
-            source, destination = [file_desc, None] if type(file_desc) is str else file_desc
-            source_relative = self.make_relative_to_configfile(source)
-            if '*' not in source_relative:
-                package_files.append((source_relative, destination or source))
-            else:
-                for source_file in glob.iglob(source_relative, recursive=True):  # Note: allow wildcards in source files, eg. 'tests/*.py' or 'tests/**/*.py``
-                    if os.path.isdir(source_file):
-                        continue
-                    if destination is not None:
-                        destination_file = destination
-                    else:
-                        relative_path = os.path.relpath(os.path.dirname(self.config_filename) or '.')
-                        destination_file = source_file[1+len(relative_path):]
-                    package_files.append((source_file, destination_file))
-
-        for package_to_include in package_config.get('include', []):
-            try:
-                package_files = self.package(package_to_include) + package_files
-            except ValueError as e:
-                raise KeyError(f'{e} - while including in: {name}')
+        for file_description in package_config.get('files', []):
+            package_files += self.make_filenames(file_description)
 
         return package_files
 
-    def make_relative_to_configfile(self, filename):
+    def make_filenames(self, file_description):
+        """Return a list of tuples (source, destination) from `file_description`."""
+        if not (type(file_description) is str or (type(file_description) in [list, tuple, set] and len(file_description) == 2)):
+            raise ValueError(f"File definition must be string or list, eg. 'source.py' or ['source.py', 'destination.py'] (got {file_description})")
+        filenames = []
+        source, destination = [file_description, None] if type(file_description) is str else file_description
+        source_relative = self.make_filename_relative(source)
+        if '*' not in source_relative:
+            # FIXME: if destination is a directory (ends with /), join destination directory and source filename
+            # filenames.append((source_relative, destination or source))
+            filenames.append((source_relative, self.make_filename_destination(source, destination)))
+        else:
+            for source_file in glob.iglob(source_relative, recursive=True):  # Note: allow wildcards in source files, eg. 'tests/*.py' or 'tests/**/*.py``
+                if os.path.isdir(source_file):
+                    continue  # Note: ignore directories: they are created by `device.put()`.
+                if destination is not None:
+                    # destination_file = destination
+                    destination_file = self.make_filename_destination(source_file, destination)
+                else:
+                    # Note: make destination_file = source_file without relative path prefix
+                    relative_path = os.path.dirname(self.config_filename)
+                    destination_file = source_file[1+len(relative_path):]
+                filenames.append((source_file, destination_file))
+        return filenames
+
+    def make_filename_relative(self, filename):
         """Return `filename` made relative to config file path."""
-        return os.path.join(os.path.relpath(os.path.dirname(self.config_filename) or '.'), filename)
+        return os.path.relpath(os.path.join(
+                os.path.relpath(os.path.dirname(self.config_filename or './')),
+                filename))
+
+
+    def make_filename_destination(self, source_description, destination_description):
+        """Return the destination path and filename, according the rules."""
+        if destination_description is None:
+            return source_description
+        elif destination_description.endswith('/'):
+            return os.path.join(os.path.dirname(destination_description), os.path.basename(source_description))
+        else:
+            return destination_description
+
+    def make_filename_relative(self, filename):
+        """Return `filename` made relative to config file path."""
+        return os.path.relpath(os.path.join(
+                os.path.relpath(os.path.dirname(self.config_filename or './')),
+                filename))
+        # return os.path.join(os.path.relpath(os.path.dirname(self.config_filename) or '.'), filename)
 
 class Configurable(object):
     """
