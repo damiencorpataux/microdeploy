@@ -77,10 +77,12 @@ class Device(Configurable):
             except ampy_pyboard.PyboardError as e:
                 if not parents_create:
                     raise RuntimeError(f'Directory does not exist for file: {destination}')
-                else:
+                elif 'ENOENT' in pyboard_error_message(e):
                     self.mkdir(os.path.dirname(destination), parents_create=True)
                     _progress(f'\n\nCreating directory: {os.path.dirname(destination)}\n\n')
                     return self.put(source, destination, _progress=_progress)
+                else:
+                    raise
 
     def rm(self, filename):
         """Remove file from MCU filesystem."""
@@ -154,7 +156,7 @@ class Device(Configurable):
 # Helpers
 
 def pyboard_error_message(exc:ampy_pyboard.PyboardError):
-    return str(exc.args[2].decode('utf-8'))
+    return str(exc.args[2] if len(exc.args) > 1 else exc.args[0])
 
 import hashlib
 import json

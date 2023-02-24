@@ -80,7 +80,6 @@ class Microdeploy(object):
             rm = self._to_fire()(self._device_object.rm)
             rmdir = self._to_fire()(self._device_object.rmdir)
             run = self._to_fire()(self._device_object.run)
-            exec = self._to_fire()(self._device_object.exec)
             reset = self._to_fire()(self._device_object.reset)
             @self._to_fire(doc_from=self._device_object.put)
             def put(filename, *args, **kwargs):
