@@ -114,8 +114,8 @@ class Microdeploy(object):
                 return self._package_object.push(*args, _progress=progress, **kwargs)
             @self._to_fire()
             def show(name):
-                """Show package definition (as of yaml config)."""
-                return self._config_object.config['packages'][name]
+                """Show package definition (as of yaml config, with compiled `ignore` if applicable)."""
+                return self._config_object.package(name)
 
         class cache(object):
             """Hashcache information."""
@@ -188,10 +188,11 @@ class Microdeploy(object):
         def wrapper(*args, **kwargs):
             try:
                 return f(*args, **kwargs)
-            except KeyboardInterrupt as e:
-                sys.stderr.write('\nAborted by user.\n')
             except (Exception, BaseException) as e:  # Note: PyboardError does not extend Exception
-                sys.stderr.write(f'\nERROR: {e}\n\n')
+                # FIXME: This is duplicate with block except in `cli.MicrodeployCLI._setup`.
                 if self._debug:
                     raise
+                else:
+                    sys.stderr.write(f'\nERROR: {e}\n\n')
+                    sys.exit(1)  # also prevents `fire` from showing help screen
         return wrapper

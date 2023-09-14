@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name='microdeploy',
-    version='0.0.1',
+    version='0.0.2',
     description='Micropython deployment toolchain',
     long_description=long_description,
     long_description_content_type="text/markdown",

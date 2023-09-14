@@ -77,7 +77,7 @@ class Device(Configurable):
                 elif len(e.args) > 1 and 'ENOENT' in str(e.args[2]):
                     self.mkdir(os.path.dirname(destination), parents_create=True)
                     _progress(f'\n\nCreating directory: {os.path.dirname(destination)}\n\n')
-                    return self.put(source, destination, _progress=_progress)
+                    return self.put(source, destination, force, parents_create, _progress)
                 else:
                     raise
 
@@ -203,9 +203,9 @@ class _HashCache(object):
                 hashcache[filename] = self._hash(file_content)
                 sys.stderr.write(f"\r{hashcache[filename]} {filename}  ")
                 if hashcache[filename] == last_hashcache.get(filename):
-                    sys.stderr.write('(unchanged)')
+                    sys.stderr.write('(not modified)')
                 else:
-                    sys.stderr.write('(changed)' if last_hashcache.get(filename) else '(new)')
+                    sys.stderr.write('(modified)' if last_hashcache.get(filename) else '(new)')
                     self._write(dict(last_hashcache, **hashcache))  # actual cache write
             except RuntimeError as e:
                 if 'No such file' not in str(e): raise   # pass when file is a directory
@@ -214,7 +214,10 @@ class _HashCache(object):
             #     sys.stderr.write(f'(error) {filename}: {e}')
             sys.stderr.write(f"\n")
         for filename in set(last_hashcache) - set(files_on_device):
-            sys.stderr.write(f'{last_hashcache[filename]} {filename}  (removed)\n')  # for information
+            hash = last_hashcache[filename]
+            del last_hashcache[filename]
+            self._write(last_hashcache)
+            sys.stderr.write(f'{hash} {filename}  (deleted)\n')  # for information
 
     def _write(self, hashcache):
         """Write `hashcache` to file `_HashCache.cachefile`, replacing existing content."""
@@ -273,6 +276,8 @@ class _Progress(object):
     def start(self):
         self.time_start = time.time_ns()
         self.callback(self._message_during())
+        if self.bytes == 0:
+            self.callback('\n')
 
     def callback_for_ampy(self, bytes_uploaded):
         self.callback('\b' * len(self._message_during()))
@@ -288,7 +293,7 @@ class _Progress(object):
         time_elapsed = (time.time_ns() - self.time_start) / 10**9
         bitrate = (self.bytes - self.bytes_left) / time_elapsed * 8
         time_left = 0 if not bitrate else self.bytes_left*8 / (bitrate)
-        percent = (self.bytes - self.bytes_left) / self.bytes * 100
+        percent = 100 if not self.bytes else (self.bytes - self.bytes_left) / self.bytes * 100
         return f'\r     {percent:>3.0f}%, {time_elapsed:.1f}s, {bitrate:.0f} bits/s, {str(self.bytes_left)} bytes left, {time_left:.1f}s left. '
 
     # def _message_after(self):

@@ -4,6 +4,7 @@ Microdeploy Configuration manager.
 
 import yaml
 import glob
+import re
 import os
 
 
@@ -44,12 +45,34 @@ class Config(object):
             'port': device.get('port'),
             'baudrate': device.get('baudrate', self.config['default']['baudrate'])}
 
-    def package(self, name: str) -> list:
+    def package(self, name: str) -> dict:
+        """Return package configuration dict."""
+        try:
+            package = self.config.get('packages', {})[name]
+        except KeyError as e:
+            KeyError(f"Package not found: {name}  - packages available: {', '.join(self.config.get('packages', {}).keys())}")
+
+        try:
+            ignore = set()
+            for package_to_include in package.get('include', []):
+                to_ignore = self.config.get('packages', {})[package_to_include].get('ignore', [])
+                if to_ignore:
+                    ignore.update(to_ignore)
+                    package['ignore'] = list(ignore)
+        except KeyError as e:
+            raise KeyError(f'Package not found: {package_to_include} - in {name}.include')
+
+        return package
+
+    def package_files(self, name: str) -> list:
         """Return list of files in package having `name` (processing includes)."""
         try:
-            package_config = self.config.get('packages', {})[name]
+            package_config = self.package(name)
         except KeyError as e:
             raise ValueError(f"Package not found: {name}  - packages available: {', '.join(self.config.get('packages', {}).keys())}")
+
+        def ignore(filename):
+            return any(re.search(ignored, filename) for ignored in package_config.get('ignore', []))
 
         package_files = []
         for file_desc in package_config.get('files', []):
@@ -57,11 +80,15 @@ class Config(object):
                 raise ValueError("File definition must be string or tuple, eg. 'main.py' or ('source.py', 'destination.py')")
             source, destination = [file_desc, None] if type(file_desc) is str else file_desc
             source_relative = self.make_relative_to_configfile(source)
+            if ignore(source_relative):
+                continue
             if '*' not in source_relative:
                 package_files.append((source_relative, destination or source))
             else:
-                for source_file in glob.iglob(source_relative, recursive=True):  # Note: allow wildcards in source files, eg. 'tests/*.py' or 'tests/**/*.py``
+                for source_file in glob.iglob(source_relative, recursive=True):  # Note: this allows wildcards in source files, eg. 'tests/*.py' or 'tests/**/*.py``
                     if os.path.isdir(source_file):
+                        continue
+                    if ignore(source_file):
                         continue
                     if destination is not None:
                         destination_file = destination
@@ -72,9 +99,9 @@ class Config(object):
 
         for package_to_include in package_config.get('include', []):
             try:
-                package_files = self.package(package_to_include) + package_files
+                package_files = self.package_files(package_to_include) + package_files
             except ValueError as e:
-                raise KeyError(f'{e} - while including in: {name}')
+                raise KeyError(f'Package not found: {package_to_include} - in {name}.include')
 
         return package_files
 

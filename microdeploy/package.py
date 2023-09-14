@@ -4,6 +4,9 @@ Microdeploy Package manager.
 
 from . import device
 from .config import Configurable
+import re
+import os
+import time  # FIXME
 
 
 class Package(Configurable):
@@ -18,17 +21,36 @@ class Package(Configurable):
 
     def files(self, name):
         """Return packages files."""
-        return self.config.package(name)
+        return self.config.package_files(name)
 
     def push(self, name, force=False, noput=False, norun=False, nofail=False, _progress=lambda state: None):
         """Upload package files to MCU."""
-        files = self.config.package(name)
+        files = self.config.package_files(name)
         count = 0
         _progress(f'Deploying package: {name}: {len(files)} files -> MCU...\n\n')
         if not noput:
             for source, destination in files:
                 try:
-                    self.device.put(source, destination, parents_create=True, force=force, _progress=_progress)
+                    mpycross_version = None  # FIXME: Move this outside loop `for`.
+                    mpycross_args = self.config.config['packages'][name].get('mpy', False)
+                    if mpycross_args and source.endswith('.py') and destination != 'main.py':
+                        if not mpycross_version:
+                            try:
+                                import mpy_cross
+                                import subprocess
+                                mpycross_version = mpy_cross.run('--version', stdout=subprocess.PIPE).communicate()[0].decode().strip()
+                            except Exception as e:
+                                raise e.__class__(f'Please install mpy-cross: `pip install mpy-cross` - {e}')
+                        mpycross_args = mpycross_args if type(mpycross_args) in [list, tuple] else []#'-march=xtensawin']#, '-X', 'emit=native']
+                        mpy_cross.run(source, *mpycross_args)
+                        source = re.sub('\.py$', '.mpy', source)
+                        destination = re.sub('\.py$', '.mpy', destination)
+                        time.sleep(.1)  # FIXME: Fixes sometimes .mpy file is not found (but exists on disk)
+                        print(f'Compiled {source} to destination {destination} - using `mpy-cross {" ".join(mpycross_args)}` (with version: {mpycross_version})')
+                        self.device.put(source, destination, parents_create=True, force=force, _progress=_progress)
+                        os.remove(source)  # .mpy file
+                    else:
+                        self.device.put(source, destination, parents_create=True, force=force, _progress=_progress)
                     count += 1
                     _progress('\n')
                 except Exception as e:

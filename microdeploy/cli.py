@@ -83,9 +83,12 @@ class MicrodeployCLI(Microdeploy):
             self._config_file = None
             self._setup()  # let the user continue without a default config file
 
-        except (Exception, BaseException) as e:
+        except KeyboardInterrupt as e:
+            sys.stderr.write('\nAborted by user.\n')
+
+        except (Exception, BaseException) as e:  # Note: PyboardError does not extend Exception
             if self._debug:
                 raise
             else:
                 sys.stderr.write(f'\nERROR: {e}\n\n')
-                sys.exit(1)  # prevent `fire` from showing help screen
+                sys.exit(1)  # also prevents `fire` from showing help screen
